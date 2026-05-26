@@ -3,129 +3,497 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>魔法数独 - Magic Sudoku</title>
+    <title>学习计划表 - Study Planner</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="magic-bg"></div>
-    
-    <div class="container">
-        <header class="header">
-            <div class="magic-icon">🔮</div>
-            <h1 class="title">魔法数独</h1>
-            <div class="magic-icon">✨</div>
-        </header>
-        
+    <div id="app">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <i class="fa-solid fa-book-open"></i>
+                <span>学习计划表</span>
+            </div>
+            <div class="nav-links">
+                <button 
+                    v-for="tab in tabs" 
+                    :key="tab.id"
+                    class="nav-btn"
+                    :class="{ active: currentTab === tab.id }"
+                    @click="currentTab = tab.id"
+                >
+                    <i :class="tab.icon"></i>
+                    <span>{{ tab.name }}</span>
+                </button>
+            </div>
+        </nav>
+
         <main class="main-content">
-            <div class="game-area">
-                <div class="sudoku-board">
-                    <div class="board-paper">
-                        <div class="sudoku-grid">
-                            <div class="sudoku-row" v-for="(row, rowIndex) in board" :key="rowIndex">
-                                <div 
-                                    v-for="(cell, colIndex) in row" 
-                                    :key="colIndex"
-                                    class="sudoku-cell"
-                                    :class="{
-                                        'selected': selectedCell && selectedCell.row === rowIndex && selectedCell.col === colIndex,
-                                        'error': cell.error,
-                                        'original': cell.original,
-                                        'highlighted': isHighlighted(rowIndex, colIndex),
-                                        'completed': gameCompleted && !cell.error
-                                    }"
-                                    @click="selectCell(rowIndex, colIndex)"
-                                >
-                                    <span v-if="cell.value" :class="{'magic-number': gameCompleted && !cell.error}">{{ cell.value }}</span>
+            <div v-show="currentTab === 'home'" class="tab-content">
+                <div class="home-section">
+                    <div class="welcome-card">
+                        <h2>欢迎回来，{{ userInfo.name }}！</h2>
+                        <p>今天也要加油学习哦 💪</p>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">📚</div>
+                            <div class="stat-info">
+                                <div class="stat-value">{{ todayTasks.length }}</div>
+                                <div class="stat-label">今日任务</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-info">
+                                <div class="stat-value">{{ completedToday }}/{{ todayTasks.length }}</div>
+                                <div class="stat-label">今日完成</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🔥</div>
+                            <div class="stat-info">
+                                <div class="stat-value">{{ streakDays }}</div>
+                                <div class="stat-label">连续学习</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🎯</div>
+                            <div class="stat-info">
+                                <div class="stat-value">{{ overallProgress }}%</div>
+                                <div class="stat-label">总进度</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>今日任务</h3>
+                        <div v-if="todayTasks.length === 0" class="empty-state">
+                            <i class="fa-solid fa-calendar-check"></i>
+                            <p>今天还没有任务，去添加一些吧！</p>
+                        </div>
+                        <div v-else class="task-list">
+                            <div 
+                                v-for="task in todayTasks" 
+                                :key="task.id"
+                                class="task-item"
+                                :class="{ completed: task.completed }"
+                                @click="toggleTask(task)"
+                            >
+                                <div class="task-checkbox">
+                                    <i v-if="task.completed" class="fa-solid fa-check"></i>
+                                </div>
+                                <div class="task-content">
+                                    <h4>{{ task.title }}</h4>
+                                    <p>{{ task.subject }} · {{ task.duration }}分钟</p>
+                                </div>
+                                <div class="task-priority" :class="task.priority">
+                                    {{ getPriorityLabel(task.priority) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <h3>最近学习</h3>
+                        <div v-if="recentTasks.length === 0" class="empty-state">
+                            <i class="fa-solid fa-history"></i>
+                            <p>还没有学习记录</p>
+                        </div>
+                        <div v-else class="recent-list">
+                            <div v-for="task in recentTasks" :key="task.id" class="recent-item">
+                                <div class="recent-date">{{ formatDate(task.date) }}</div>
+                                <div class="recent-info">
+                                    <span>{{ task.title }}</span>
+                                    <span class="recent-subject">{{ task.subject }}</span>
+                                </div>
+                                <div class="recent-status" :class="task.completed ? 'completed' : 'pending'">
+                                    {{ task.completed ? '已完成' : '未完成' }}
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="mobile-numpad" v-if="showMobileNumpad">
-                    <div class="numpad-row">
-                        <button v-for="n in 9" :key="n" class="numpad-btn" @click="inputNumber(n)">{{ n }}</button>
+            </div>
+
+            <div v-show="currentTab === 'planner'" class="tab-content">
+                <div class="planner-section">
+                    <div class="section-header">
+                        <h2>学习计划</h2>
+                        <button class="add-btn" @click="showAddModal = true">
+                            <i class="fa-solid fa-plus"></i>
+                            添加任务
+                        </button>
                     </div>
-                    <div class="numpad-row">
-                        <button class="numpad-btn numpad-clear" @click="clearCell">清除</button>
+
+                    <div class="filter-bar">
+                        <button 
+                            v-for="filter in filters" 
+                            :key="filter.id"
+                            class="filter-btn"
+                            :class="{ active: currentFilter === filter.id }"
+                            @click="currentFilter = filter.id"
+                        >
+                            {{ filter.name }}
+                        </button>
+                    </div>
+
+                    <div class="task-cards">
+                        <div 
+                            v-for="task in filteredTasks" 
+                            :key="task.id"
+                            class="task-card"
+                            :class="{ completed: task.completed }"
+                        >
+                            <div class="card-header">
+                                <span class="task-date">{{ formatDate(task.date) }}</span>
+                                <span class="priority-badge" :class="task.priority">
+                                    {{ getPriorityLabel(task.priority) }}
+                                </span>
+                            </div>
+                            <h3>{{ task.title }}</h3>
+                            <p class="task-desc">{{ task.description }}</p>
+                            <div class="card-meta">
+                                <span class="meta-item">
+                                    <i class="fa-solid fa-book"></i>
+                                    {{ task.subject }}
+                                </span>
+                                <span class="meta-item">
+                                    <i class="fa-solid fa-clock"></i>
+                                    {{ task.duration }}分钟
+                                </span>
+                            </div>
+                            <div class="card-actions">
+                                <button class="action-btn edit" @click="editTask(task)">
+                                    <i class="fa-solid fa-pencil"></i>
+                                </button>
+                                <button class="action-btn delete" @click="deleteTask(task)">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                                <button 
+                                    v-if="!task.completed" 
+                                    class="action-btn complete" 
+                                    @click="toggleTask(task)"
+                                >
+                                    <i class="fa-solid fa-check"></i>
+                                    完成
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="filteredTasks.length === 0" class="empty-state">
+                        <i class="fa-solid fa-calendar-plus"></i>
+                        <p>暂无{{ getFilterLabel(currentFilter) }}任务</p>
                     </div>
                 </div>
             </div>
-            
-            <div class="control-panel">
-                <div class="difficulty-section">
-                    <h3 class="section-title">难度选择</h3>
-                    <div class="difficulty-buttons">
-                        <button 
-                            v-for="level in difficulties" 
-                            :key="level.value"
-                            class="difficulty-btn"
-                            :class="{ 'active': difficulty === level.value }"
-                            @click="setDifficulty(level.value)"
+
+            <div v-show="currentTab === 'progress'" class="tab-content">
+                <div class="progress-section">
+                    <h2>学习进度</h2>
+
+                    <div class="progress-chart">
+                        <div class="chart-header">
+                            <h3>本周学习时长</h3>
+                            <span class="chart-total">{{ weeklyTotalHours }}小时</span>
+                        </div>
+                        <div class="chart-bars">
+                            <div v-for="day in weeklyData" :key="day.name" class="chart-bar-item">
+                                <div class="bar-container">
+                                    <div 
+                                        class="bar" 
+                                        :style="{ height: day.percentage + '%' }"
+                                        :class="{ active: day.hours > 0 }"
+                                    ></div>
+                                </div>
+                                <span class="bar-label">{{ day.name }}</span>
+                                <span class="bar-value">{{ day.hours }}h</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="subject-progress">
+                        <h3>科目进度</h3>
+                        <div v-for="subject in subjectProgress" :key="subject.name" class="subject-item">
+                            <div class="subject-header">
+                                <span>{{ subject.name }}</span>
+                                <span>{{ subject.percentage }}%</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div 
+                                    class="progress-fill" 
+                                    :style="{ width: subject.percentage + '%' }"
+                                    :class="subject.color"
+                                ></div>
+                            </div>
+                            <div class="subject-stats">
+                                <span>已完成 {{ subject.completed }} 个任务</span>
+                                <span>共 {{ subject.total }} 个任务</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="milestone-section">
+                        <h3>学习里程碑</h3>
+                        <div class="milestone-list">
+                            <div v-for="milestone in milestones" :key="milestone.id" class="milestone-item">
+                                <div class="milestone-icon" :class="{ achieved: milestone.achieved }">
+                                    <i v-if="milestone.achieved" class="fa-solid fa-trophy"></i>
+                                    <i v-else class="fa-solid fa-lock"></i>
+                                </div>
+                                <div class="milestone-info">
+                                    <h4>{{ milestone.title }}</h4>
+                                    <p>{{ milestone.description }}</p>
+                                </div>
+                                <div class="milestone-progress">
+                                    <span v-if="milestone.achieved">已达成</span>
+                                    <span v-else>{{ milestone.current }}/{{ milestone.target }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-show="currentTab === 'achievements'" class="tab-content">
+                <div class="achievements-section">
+                    <h2>完成情况</h2>
+
+                    <div class="achievements-overview">
+                        <div class="overview-card">
+                            <div class="overview-icon">🏆</div>
+                            <div class="overview-info">
+                                <div class="overview-value">{{ achievedCount }}/{{ achievements.length }}</div>
+                                <div class="overview-label">已获得成就</div>
+                            </div>
+                        </div>
+                        <div class="overview-card">
+                            <div class="overview-icon">📊</div>
+                            <div class="overview-info">
+                                <div class="overview-value">{{ totalCompletedTasks }}</div>
+                                <div class="overview-label">总完成任务</div>
+                            </div>
+                        </div>
+                        <div class="overview-card">
+                            <div class="overview-icon">⏱️</div>
+                            <div class="overview-info">
+                                <div class="overview-value">{{ totalStudyHours }}小时</div>
+                                <div class="overview-label">总学习时长</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="achievements-grid">
+                        <div 
+                            v-for="achievement in achievements" 
+                            :key="achievement.id"
+                            class="achievement-card"
+                            :class="{ locked: !achievement.unlocked }"
                         >
-                            {{ level.label }}
+                            <div class="achievement-icon">
+                                <i :class="achievement.icon"></i>
+                            </div>
+                            <h3>{{ achievement.title }}</h3>
+                            <p>{{ achievement.description }}</p>
+                            <div class="achievement-progress">
+                                <div 
+                                    class="progress-bar"
+                                    :style="{ width: achievement.progress + '%' }"
+                                ></div>
+                            </div>
+                            <span class="progress-text">{{ achievement.progress }}%</span>
+                        </div>
+                    </div>
+
+                    <div class="completion-calendar">
+                        <h3>学习日历</h3>
+                        <div class="calendar-grid">
+                            <div 
+                                v-for="day in calendarData" 
+                                :key="day.date"
+                                class="calendar-day"
+                                :class="getDayClass(day)"
+                                :title="day.count + ' 个任务'"
+                            >
+                                {{ day.day }}
+                            </div>
+                        </div>
+                        <div class="calendar-legend">
+                            <span><div class="legend-dot none"></div> 无学习</span>
+                            <span><div class="legend-dot low"></div> 1-2个任务</span>
+                            <span><div class="legend-dot medium"></div> 3-4个任务</span>
+                            <span><div class="legend-dot high"></div> 5+个任务</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-show="currentTab === 'profile'" class="tab-content">
+                <div class="profile-section">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                        <div class="profile-info">
+                            <h2>{{ userInfo.name }}</h2>
+                            <p>加入于 {{ formatDate(userInfo.joinDate) }}</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-stats">
+                        <div class="profile-stat">
+                            <span class="stat-num">{{ totalTasks }}</span>
+                            <span class="stat-text">总任务数</span>
+                        </div>
+                        <div class="profile-stat">
+                            <span class="stat-num">{{ completedTasksPercent }}%</span>
+                            <span class="stat-text">完成率</span>
+                        </div>
+                        <div class="profile-stat">
+                            <span class="stat-num">{{ totalStudyHours }}</span>
+                            <span class="stat-text">学习时长</span>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>个人设置</h3>
+                        <div class="settings-form">
+                            <div class="form-group">
+                                <label>昵称</label>
+                                <input 
+                                    type="text" 
+                                    v-model="userInfo.name" 
+                                    class="form-input"
+                                    @blur="saveUserInfo"
+                                />
+                            </div>
+                            <div class="form-group">
+                                <label>学习目标</label>
+                                <textarea 
+                                    v-model="userInfo.goal" 
+                                    class="form-textarea"
+                                    rows="3"
+                                    @blur="saveUserInfo"
+                                ></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>每日学习时长目标（分钟）</label>
+                                <input 
+                                    type="number" 
+                                    v-model="userInfo.dailyGoal" 
+                                    class="form-input"
+                                    @blur="saveUserInfo"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn-secondary" @click="exportData">
+                            <i class="fa-solid fa-download"></i>
+                            导出数据
+                        </button>
+                        <button class="btn-danger" @click="resetData">
+                            <i class="fa-solid fa-trash"></i>
+                            重置数据
                         </button>
                     </div>
                 </div>
-                
-                <div class="game-status">
-                    <div class="status-item">
-                        <span class="status-label">当前状态:</span>
-                        <span class="status-value" :class="statusColor">{{ gameStatus }}</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-label">已填入:</span>
-                        <span class="status-value">{{ filledCells }} / {{ totalCells }}</span>
-                    </div>
-                </div>
-                
-                <div class="action-buttons">
-                    <button class="action-btn new-game" @click="newGame">
-                        <span class="btn-icon">🗡️</span>
-                        <span>新游戏</span>
-                    </button>
-                    <button class="action-btn hint" @click="showHint">
-                        <span class="btn-icon">💡</span>
-                        <span>提示</span>
-                    </button>
-                    <button class="action-btn rules-toggle" @click="toggleRules">
-                        <span class="btn-icon">📜</span>
-                        <span>规则说明</span>
-                    </button>
-                </div>
-                
-                <div class="rules-panel" v-if="showRules">
-                    <h4 class="rules-title">数独规则</h4>
-                    <ul class="rules-list">
-                        <li>每行必须包含1-9的所有数字</li>
-                        <li>每列必须包含1-9的所有数字</li>
-                        <li>每个3×3区块必须包含1-9的所有数字</li>
-                        <li>数字不能重复</li>
-                    </ul>
-                </div>
             </div>
         </main>
-    </div>
-    
-    <div class="celebration-modal" v-if="showCelebration">
-        <div class="modal-content">
-            <div class="celebration-header">
-                <span class="celebration-icon">🎉</span>
-                <h2 class="celebration-title">恭喜完成！</h2>
-                <span class="celebration-icon">🎊</span>
+
+        <div v-if="showAddModal" class="modal-overlay" @click.self="closeModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>{{ editingTask ? '编辑任务' : '添加任务' }}</h3>
+                    <button class="modal-close" @click="closeModal">
+                        <i class="fa-solid fa-x"></i>
+                    </button>
+                </div>
+                <form class="modal-form" @submit.prevent="saveTask">
+                    <div class="form-group">
+                        <label>任务标题</label>
+                        <input 
+                            type="text" 
+                            v-model="taskForm.title" 
+                            class="form-input"
+                            required
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label>科目</label>
+                        <select v-model="taskForm.subject" class="form-input" required>
+                            <option value="">选择科目</option>
+                            <option value="数学">数学</option>
+                            <option value="英语">英语</option>
+                            <option value="语文">语文</option>
+                            <option value="物理">物理</option>
+                            <option value="化学">化学</option>
+                            <option value="生物">生物</option>
+                            <option value="历史">历史</option>
+                            <option value="地理">地理</option>
+                            <option value="编程">编程</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>日期</label>
+                            <input 
+                                type="date" 
+                                v-model="taskForm.date" 
+                                class="form-input"
+                                required
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label>时长（分钟）</label>
+                            <input 
+                                type="number" 
+                                v-model="taskForm.duration" 
+                                class="form-input"
+                                min="1"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>优先级</label>
+                        <div class="priority-options">
+                            <label 
+                                v-for="p in priorities" 
+                                :key="p.value"
+                                class="priority-option"
+                            >
+                                <input 
+                                    type="radio" 
+                                    v-model="taskForm.priority" 
+                                    :value="p.value"
+                                />
+                                <span :class="p.value">{{ p.label }}</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>描述（可选）</label>
+                        <textarea 
+                            v-model="taskForm.description" 
+                            class="form-textarea"
+                            rows="3"
+                        ></textarea>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" @click="closeModal">取消</button>
+                        <button type="submit" class="btn-primary">{{ editingTask ? '保存修改' : '添加任务' }}</button>
+                    </div>
+                </form>
             </div>
-            <p class="celebration-text">您已成功解开魔法数独谜题！</p>
-            <div class="magic-sparkles">
-                <span v-for="i in 12" :key="i" class="sparkle" :style="{ '--delay': i * 0.1 + 's' }">✨</span>
-            </div>
-            <button class="celebration-btn" @click="newGame">
-                <span>开始新游戏</span>
-                <span class="btn-icon">🔮</span>
-            </button>
         </div>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="script.js"></script>
 </body>
