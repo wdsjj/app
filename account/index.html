@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能记账 - Smart Accounting</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <i class="fa-solid fa-wallet"></i>
+                <span>智能记账</span>
+            </div>
+            <div class="nav-links">
+                <button
+                    v-for="tab in tabs"
+                    :key="tab.id"
+                    class="nav-btn"
+                    :class="{ active: currentTab === tab.id }"
+                    @click="currentTab = tab.id"
+                >
+                    <i :class="tab.icon"></i>
+                    <span>{{ tab.name }}</span>
+                </button>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div v-show="currentTab === 'home'" class="tab-content">
+                <div class="home-section">
+                    <div class="summary-cards">
+                        <div class="summary-card total">
+                            <div class="summary-icon">💰</div>
+                            <div class="summary-info">
+                                <div class="summary-label">总余额</div>
+                                <div class="summary-value">{{ formatMoney(totalBalance) }}</div>
+                            </div>
+                        </div>
+                        <div class="summary-card income">
+                            <div class="summary-icon">📈</div>
+                            <div class="summary-info">
+                                <div class="summary-label">本月收入</div>
+                                <div class="summary-value">{{ formatMoney(thisMonthIncome) }}</div>
+                            </div>
+                        </div>
+                        <div class="summary-card expense">
+                            <div class="summary-icon">📉</div>
+                            <div class="summary-info">
+                                <div class="summary-label">本月支出</div>
+                                <div class="summary-value">{{ formatMoney(thisMonthExpense) }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="quick-actions">
+                        <button class="action-btn add-income" @click="openAddModal('income')">
+                            <i class="fa-solid fa-plus-circle"></i>
+                            <span>记收入</span>
+                        </button>
+                        <button class="action-btn add-expense" @click="openAddModal('expense')">
+                            <i class="fa-solid fa-minus-circle"></i>
+                            <span>记支出</span>
+                        </button>
+                        <button class="action-btn transfer" @click="openAddModal('transfer')">
+                            <i class="fa-solid fa-exchange-alt"></i>
+                            <span>转账</span>
+                        </button>
+                    </div>
+
+                    <div class="recent-transactions">
+                        <h3>最近记录</h3>
+                        <div v-if="recentTransactions.length === 0" class="empty-state">
+                            <i class="fa-solid fa-receipt"></i>
+                            <p>暂无记录，开始记一笔吧！</p>
+                        </div>
+                        <div v-else class="transaction-list">
+                            <div
+                                v-for="transaction in recentTransactions"
+                                :key="transaction.id"
+                                class="transaction-item"
+                                @click="editTransaction(transaction)"
+                            >
+                                <div class="transaction-icon" :class="transaction.type">
+                                    <i :class="getCategoryIcon(transaction.category)"></i>
+                                </div>
+                                <div class="transaction-info">
+                                    <div class="transaction-title">{{ transaction.category }}</div>
+                                    <div class="transaction-date">{{ formatDate(transaction.date) }}</div>
+                                    <div v-if="transaction.note" class="transaction-note">{{ transaction.note }}</div>
+                                </div>
+                                <div class="transaction-amount" :class="transaction.type">
+                                    {{ transaction.type === 'income' ? '+' : transaction.type === 'expense' ? '-' : '' }}{{ formatMoney(transaction.amount) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-show="currentTab === 'records'" class="tab-content">
+                <div class="records-section">
+                    <div class="section-header">
+                        <h2>记账记录</h2>
+                        <div class="filter-buttons">
+                            <button
+                                v-for="filter in filters"
+                                :key="filter.id"
+                                class="filter-btn"
+                                :class="{ active: currentFilter === filter.id }"
+                                @click="currentFilter = filter.id"
+                            >
+                                {{ filter.name }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="date-range">
+                        <input type="month" v-model="selectedMonth" @change="filterByMonth">
+                    </div>
+
+                    <div v-if="filteredTransactions.length === 0" class="empty-state">
+                        <i class="fa-solid fa-file-invoice"></i>
+                        <p>暂无记录</p>
+                    </div>
+
+                    <div v-else class="transaction-list">
+                        <div
+                            v-for="transaction in filteredTransactions"
+                            :key="transaction.id"
+                            class="transaction-item"
+                            @click="editTransaction(transaction)"
+                        >
+                            <div class="transaction-icon" :class="transaction.type">
+                                <i :class="getCategoryIcon(transaction.category)"></i>
+                            </div>
+                            <div class="transaction-info">
+                                <div class="transaction-title">{{ transaction.category }}</div>
+                                <div class="transaction-date">{{ formatDate(transaction.date) }}</div>
+                                <div v-if="transaction.note" class="transaction-note">{{ transaction.note }}</div>
+                            </div>
+                            <div class="transaction-actions">
+                                <button class="action-icon" @click.stop="deleteTransaction(transaction)">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="transaction-amount" :class="transaction.type">
+                                {{ transaction.type === 'income' ? '+' : transaction.type === 'expense' ? '-' : '' }}{{ formatMoney(transaction.amount) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-show="currentTab === 'stats'" class="tab-content">
+                <div class="stats-section">
+                    <h2>统计分析</h2>
+
+                    <div class="stats-summary">
+                        <div class="stat-box">
+                            <div class="stat-label">总收入</div>
+                            <div class="stat-value income">{{ formatMoney(totalIncome) }}</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">总支出</div>
+                            <div class="stat-value expense">{{ formatMoney(totalExpense) }}</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">结余</div>
+                            <div class="stat-value" :class="totalBalance >= 0 ? 'income' : 'expense'">{{ formatMoney(totalBalance) }}</div>
+                        </div>
+                    </div>
+
+                    <div class="category-stats">
+                        <h3>支出分类</h3>
+                        <div class="category-list">
+                            <div
+                                v-for="(data, category) in categoryExpense"
+                                :key="category"
+                                class="category-item"
+                            >
+                                <div class="category-header">
+                                    <span class="category-name">{{ category }}</span>
+                                    <span class="category-amount">{{ formatMoney(data.amount) }}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div
+                                        class="progress-fill"
+                                        :style="{ width: data.percentage + '%' }"
+                                    ></div>
+                                </div>
+                                <div class="category-details">
+                                    <span>{{ data.count }} 笔</span>
+                                    <span>{{ data.percentage.toFixed(1) }}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="monthly-trend">
+                        <h3>收支趋势</h3>
+                        <div class="trend-chart">
+                            <div
+                                v-for="month in last6Months"
+                                :key="month"
+                                class="trend-bar"
+                            >
+                                <div class="bar-wrapper">
+                                    <div class="bar income" :style="{ height: getBarHeight('income', month) + '%' }"></div>
+                                    <div class="bar expense" :style="{ height: getBarHeight('expense', month) + '%' }"></div>
+                                </div>
+                                <span class="bar-label">{{ month }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-show="currentTab === 'budget'" class="tab-content">
+                <div class="budget-section">
+                    <h2>预算管理</h2>
+
+                    <div class="add-budget">
+                        <button class="add-btn" @click="openBudgetModal">
+                            <i class="fa-solid fa-plus"></i>
+                            设置预算
+                        </button>
+                    </div>
+
+                    <div v-if="budgets.length === 0" class="empty-state">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <p>还没有设置预算，快来设定一个吧！</p>
+                    </div>
+
+                    <div v-else class="budget-list">
+                        <div
+                            v-for="budget in budgets"
+                            :key="budget.id"
+                            class="budget-item"
+                            @click="editBudget(budget)"
+                        >
+                            <div class="budget-header">
+                                <span class="budget-category">{{ budget.category }}</span>
+                                <span class="budget-amount">{{ formatMoney(budget.spent) }} / {{ formatMoney(budget.limit) }}</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div
+                                    class="progress-fill"
+                                    :class="getBudgetStatusClass(budget)"
+                                    :style="{ width: getBudgetPercentage(budget) + '%' }"
+                                ></div>
+                            </div>
+                            <div class="budget-footer">
+                                <span class="budget-percentage">{{ getBudgetPercentage(budget).toFixed(1) }}%</span>
+                                <span v-if="budget.spent < budget.limit" class="budget-remaining">剩余 {{ formatMoney(budget.limit - budget.spent) }}</span>
+                                <span v-else class="budget-over">超支 {{ formatMoney(budget.spent - budget.limit) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-show="currentTab === 'settings'" class="tab-content">
+                <div class="settings-section">
+                    <h2>设置</h2>
+
+                    <div class="settings-form">
+                        <div class="form-group">
+                            <label>默认货币</label>
+                            <select v-model="settings.currency" @change="saveSettings">
+                                <option value="CNY">CNY - 人民币</option>
+                                <option value="USD">USD - 美元</option>
+                                <option value="EUR">EUR - 欧元</option>
+                                <option value="JPY">JPY - 日元</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>记账提醒</label>
+                            <div class="toggle-switch" :class="{ active: settings.reminder }" @click="toggleReminder">
+                                <div class="toggle-ball"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group" v-if="settings.reminder">
+                            <label>提醒时间</label>
+                            <input type="time" v-model="settings.reminderTime" @change="saveSettings">
+                        </div>
+
+                        <div class="action-buttons">
+                            <button class="btn-secondary" @click="exportData">
+                                <i class="fa-solid fa-download"></i>
+                                导出数据
+                            </button>
+                            <button class="btn-danger" @click="resetData">
+                                <i class="fa-solid fa-trash"></i>
+                                重置数据
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="app-info">
+                        <h3>关于</h3>
+                        <div class="info-item">
+                            <span class="info-label">版本</span>
+                            <span class="info-value">1.0.0</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">开发</span>
+                            <span class="info-value">Smart Accounting Team</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div v-if="showAddModal" class="modal-overlay" @click.self="closeModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>{{ editingTransaction ? '编辑记录' : (currentTransactionType === 'income' ? '记收入' : currentTransactionType === 'expense' ? '记支出' : '转账') }}</h3>
+                    <button class="modal-close" @click="closeModal">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+                <form class="modal-form" @submit.prevent="saveTransaction">
+                    <div class="type-selector">
+                        <div
+                            v-for="type in ['income', 'expense', 'transfer']"
+                            :key="type"
+                            class="type-option"
+                            :class="{ active: currentTransactionType === type }"
+                            @click="currentTransactionType = type"
+                        >
+                            {{ type === 'income' ? '收入' : type === 'expense' ? '支出' : '转账' }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>金额</label>
+                        <input
+                            type="number"
+                            v-model.number="transactionForm.amount"
+                            step="0.01"
+                            min="0"
+                            required
+                            placeholder="请输入金额"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>分类</label>
+                        <select v-model="transactionForm.category" required>
+                            <option value="">请选择分类</option>
+                            <option v-for="category in getCategories()" :key="category" :value="category">{{ category }}</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>日期</label>
+                        <input
+                            type="date"
+                            v-model="transactionForm.date"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label>备注</label>
+                        <textarea
+                            v-model="transactionForm.note"
+                            rows="3"
+                            placeholder="添加备注（可选）"
+                        ></textarea>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" @click="closeModal">取消</button>
+                        <button type="submit" class="btn-primary">{{ editingTransaction ? '保存' : '添加' }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div v-if="showBudgetModal" class="modal-overlay" @click.self="closeBudgetModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>{{ editingBudget ? '编辑预算' : '设置预算' }}</h3>
+                    <button class="modal-close" @click="closeBudgetModal">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+                <form class="modal-form" @submit.prevent="saveBudget">
+                    <div class="form-group">
+                        <label>分类</label>
+                        <select v-model="budgetForm.category" required>
+                            <option value="">请选择分类</option>
+                            <option v-for="category in expenseCategories" :key="category" :value="category">{{ category }}</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>预算金额</label>
+                        <input
+                            type="number"
+                            v-model.number="budgetForm.limit"
+                            step="0.01"
+                            min="0"
+                            required
+                            placeholder="请输入预算金额"
+                        >
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" @click="closeBudgetModal">取消</button>
+                        <button type="submit" class="btn-primary">{{ editingBudget ? '保存' : '设置' }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
